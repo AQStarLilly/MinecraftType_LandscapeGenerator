@@ -31,7 +31,7 @@ public class VoxelTerrainGenerator : MonoBehaviour
     [Range(8, 48)] public int heightSpan = 16;
 
     [Header("Phase 3: Pathing")]
-    [Tooltip("Y clearance (height) for carved tunnel space (2 or 3 works well).")]
+    [Tooltip("Y clearance (height) for carved tunnel space (2 or 3 blocks).")]
     [Range(2, 4)] public int tunnelClearance = 3;
     [Tooltip("Maximum step up allowed without carving.")]
     [Range(1, 3)] public int maxNaturalStep = 1;
@@ -45,8 +45,8 @@ public class VoxelTerrainGenerator : MonoBehaviour
     public GameObject dirtPrefab;
     public GameObject pathPrefab;
     public GameObject waterPrefab;
-    public GameObject stonePrefab; // optional
-    public GameObject sandPrefab;  // optional
+    public GameObject stonePrefab; 
+    public GameObject sandPrefab; 
 
     [Header("Runtime")]
     public Transform containerParent; // optional; if null will be created
@@ -60,10 +60,8 @@ public class VoxelTerrainGenerator : MonoBehaviour
 
     private Transform container; // holder for spawned cubes
 
-    // -------- Unity Hooks --------
     private void OnValidate()
     {
-        // Ensure ranges are sane
         heightSpan = Mathf.Max(1, heightSpan);
         maxHeight = Mathf.Clamp(maxHeight, 8, 64);
         waterLevel = Mathf.Clamp(waterLevel, 0, maxHeight - 1);
@@ -312,7 +310,7 @@ public class VoxelTerrainGenerator : MonoBehaviour
                     moveCost += uphillPenalty * step;
                 }
 
-                // Allow stepping down any amount (like a drop), but we'll keep it small by smoothing earlier
+                // Allow stepping down any amount (like a drop)
 
                 int tentativeG = gScore[cur.pos] + moveCost;
                 int nbF;
@@ -334,7 +332,7 @@ public class VoxelTerrainGenerator : MonoBehaviour
             }
         }
 
-        // If we get here, no path found (rare). As a fallback, mark a straight trench just above water level.
+        // Fallback if path isn't found or generated
         Debug.LogWarning("Path search failed; carving fallback trench path.");
         FallbackTrenchPath(start, goal);
     }
