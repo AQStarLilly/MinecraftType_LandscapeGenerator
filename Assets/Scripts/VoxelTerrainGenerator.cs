@@ -139,12 +139,12 @@ public class VoxelTerrainGenerator : MonoBehaviour
         int[,] walkX = new int[sizeX, sizeZ];
         for (int z = 0; z < sizeZ; z++)
         {
-            int v = baseHeight + prng.Next(0, heightSpan);
+            int heightValue = baseHeight + prng.Next(0, heightSpan);
             for (int x = 0; x < sizeX; x++)
             {
                 // step: -maxStep..+maxStep
-                v += prng.Next(-maxStepPerWalk, maxStepPerWalk + 1);
-                walkX[x, z] = v;
+                heightValue += prng.Next(-maxStepPerWalk, maxStepPerWalk + 1);
+                walkX[x, z] = heightValue;
             }
         }
 
@@ -152,11 +152,11 @@ public class VoxelTerrainGenerator : MonoBehaviour
         int[,] walkZ = new int[sizeX, sizeZ];
         for (int x = 0; x < sizeX; x++)
         {
-            int v = baseHeight + prng.Next(0, heightSpan);
+            int heightValue = baseHeight + prng.Next(0, heightSpan);
             for (int z = 0; z < sizeZ; z++)
             {
-                v += prng.Next(-maxStepPerWalk, maxStepPerWalk + 1);
-                walkZ[x, z] = v;
+                heightValue += prng.Next(-maxStepPerWalk, maxStepPerWalk + 1);
+                walkZ[x, z] = heightValue;
             }
         }
 
@@ -176,13 +176,13 @@ public class VoxelTerrainGenerator : MonoBehaviour
             {
                 if (prng.NextDouble() < plateauChance)
                 {
-                    int sum = 0; int c = 0;
+                    int sum = 0; int count = 0;
                     for (int dx = -1; dx <= 1; dx++)
                         for (int dz = -1; dz <= 1; dz++)
                         {
-                            sum += h[x + dx, z + dz]; c++;
+                            sum += h[x + dx, z + dz]; count++;
                         }
-                    h[x, z] = sum / c; // quick plateau
+                    h[x, z] = sum / count; // quick plateau
                 }
             }
         }
@@ -196,12 +196,12 @@ public class VoxelTerrainGenerator : MonoBehaviour
         // D) smoothing (box blur N passes)
         for (int pass = 0; pass < smoothPasses; pass++)
         {
-            int[,] sm = new int[sizeX, sizeZ];
+            int[,] smoothedHeights = new int[sizeX, sizeZ];
             for (int x = 0; x < sizeX; x++)
             {
                 for (int z = 0; z < sizeZ; z++)
                 {
-                    int sum = 0, c = 0;
+                    int sum = 0, count = 0;
                     for (int dx = -1; dx <= 1; dx++)
                     {
                         int nx = x + dx;
@@ -210,13 +210,13 @@ public class VoxelTerrainGenerator : MonoBehaviour
                         {
                             int nz = z + dz;
                             if (nz < 0 || nz >= sizeZ) continue;
-                            sum += h[nx, nz]; c++;
+                            sum += h[nx, nz]; count++;
                         }
                     }
-                    sm[x, z] = sum / c;
+                    smoothedHeights[x, z] = sum / count;
                 }
             }
-            h = sm;
+            h = smoothedHeights;
         }
 
         height = h;
@@ -269,40 +269,40 @@ public class VoxelTerrainGenerator : MonoBehaviour
             int bestIdx = 0; int bestF = open[0].f;
             for (int i = 1; i < open.Count; i++)
                 if (open[i].f < bestF) { bestF = open[i].f; bestIdx = i; }
-            Node cur = open[bestIdx];
+            Node currentNode = open[bestIdx];
             open.RemoveAt(bestIdx);
 
-            if (cur.pos == goal)
+            if (currentNode.pos == goal)
             {
-                ReconstructPath(cameFrom, cur.pos);
+                ReconstructPath(cameFrom, currentNode.pos);
                 return;
             }
 
-            if (!closed.Add(cur.pos)) continue;
+            if (!closed.Add(currentNode.pos)) continue;
 
-            foreach (var nb in Neighbors4(cur.pos))
+            foreach (var neighbor in Neighbors4(currentNode.pos))
             {
-                if (closed.Contains(nb)) continue;
+                if (closed.Contains(neighbor)) continue;
 
                 // Skip out of bounds or water
-                if (!InBounds(nb.x, nb.y)) continue;
-                if (isWater[nb.x, nb.y]) continue;
+                if (!InBounds(neighbor.x, neighbor.y)) continue;
+                if (isWater[neighbor.x, neighbor.y]) continue;
 
-                int hCur = height[cur.pos.x, cur.pos.y];
-                int hNb = height[nb.x, nb.y];
-                int step = hNb - hCur;
+                int heightCurrent = height[currentNode.pos.x, currentNode.pos.y];
+                int heightNeighbor = height[neighbor.x, neighbor.y];
+                int step = heightNeighbor - heightCurrent;
 
                 int moveCost = 1; // base step cost
 
                 if (step > maxNaturalStep)
                 {
-                    // Carve a ramp/tunnel by raising our traversable height to hCur+1 (virtually),
+                    // Carve a ramp/tunnel by raising our traversable height to heightCurrent+1 (virtually),
                     // and ensure vertical clearance.
-                    int carvedTo = hCur + 1;
+                    int carvedTo = heightCurrent + 1;
                     // Physically modify the terrain at neighbor to enable traversal and tunnel space.
-                    CarveTunnelAt(nb.x, nb.y, carvedTo, tunnelClearance);
-                    hNb = height[nb.x, nb.y]; // update after carving
-                    step = hNb - hCur;
+                    CarveTunnelAt(neighbor.x, neighbor.y, carvedTo, tunnelClearance);
+                    heightNeighbor = height[neighbor.x, neighbor.y]; // update after carving
+                    step = heightNeighbor - heightCurrent;
                     // Slight penalty for carving
                     moveCost += 2;
                 }
@@ -313,22 +313,22 @@ public class VoxelTerrainGenerator : MonoBehaviour
 
                 // Allow stepping down any amount (like a drop)
 
-                int tentativeG = gScore[cur.pos] + moveCost;
-                int nbF;
-                if (!gScore.TryGetValue(nb, out int oldG) || tentativeG < oldG)
+                int tentativeG = gScore[currentNode.pos] + moveCost;
+                int neighborFScore;
+                if (!gScore.TryGetValue(neighbor, out int oldG) || tentativeG < oldG)
                 {
-                    cameFrom[nb] = cur.pos;
-                    gScore[nb] = tentativeG;
-                    nbF = tentativeG + Heuristic(nb, goal);
-                    fScore[nb] = nbF;
+                    cameFrom[neighbor] = currentNode.pos;
+                    gScore[neighbor] = tentativeG;
+                    neighborFScore = tentativeG + Heuristic(neighbor, goal);
+                    fScore[neighbor] = neighborFScore;
 
                     // push/add to open
                     bool exists = false;
                     for (int i = 0; i < open.Count; i++)
                     {
-                        if (open[i].pos == nb) { open[i] = new Node(nb, tentativeG, nbF); exists = true; break; }
+                        if (open[i].pos == neighbor) { open[i] = new Node(neighbor, tentativeG, neighborFScore); exists = true; break; }
                     }
-                    if (!exists) open.Add(new Node(nb, tentativeG, nbF));
+                    if (!exists) open.Add(new Node(neighbor, tentativeG, neighborFScore));
                 }
             }
         }
@@ -350,13 +350,13 @@ public class VoxelTerrainGenerator : MonoBehaviour
 
     private bool InBounds(int x, int z) => x >= 0 && z >= 0 && x < sizeX && z < sizeZ;
 
-    private void ReconstructPath(Dictionary<Vector2Int, Vector2Int> cameFrom, Vector2Int cur)
+    private void ReconstructPath(Dictionary<Vector2Int, Vector2Int> cameFrom, Vector2Int currentNode)
     {
-        var list = new List<Vector2Int> { cur };
-        while (cameFrom.TryGetValue(cur, out var prev))
+        var list = new List<Vector2Int> { currentNode };
+        while (cameFrom.TryGetValue(currentNode, out var prev))
         {
             list.Add(prev);
-            cur = prev;
+            currentNode = prev;
         }
         list.Reverse();
         pathCells = list.ToArray();
