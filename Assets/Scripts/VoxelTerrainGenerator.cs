@@ -130,7 +130,7 @@ public class VoxelTerrainGenerator : MonoBehaviour
     //   A) Build two 1D random walks (ridge lines): one along X for each Z, and one along Z for each X.
     //   B) Blend the two fields (averaging) to create a 2D height suggestion.
     //   C) Apply sparse "plateau" jitter to create flat patches.
-    //   D) Clamp and smooth with a box blur N passes.
+    //   D) Clamp and smooth to make hills not jagged
     private void GenerateHeights_Proprietary()
     {
         int[,] h = new int[sizeX, sizeZ];
@@ -225,6 +225,7 @@ public class VoxelTerrainGenerator : MonoBehaviour
     // ==================
     // PHASE 2: Watering
     // ==================
+    // If a tile is below the set threshold, replace it with water, the block just above the water line turns into sand for a beach like shore
     private void MarkWaterAndShorelines()
     {
         for (int x = 0; x < sizeX; x++)
